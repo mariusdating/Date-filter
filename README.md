@@ -1,2 +1,2 @@
-# Date-filter
-Personal daring filter.
+# Date
+Personal dating filter.
