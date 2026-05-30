@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>The Filter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #141414;
+    --border: #2a2a2a;
+    --text: #e8e4dc;
+    --text-dim: #6b6560;
+    --accent: #c8a96e;
+    --accent-dim: #7a6540;
+    --fail: #8b3a3a;
+    --pass: #3a6b4a;
+    --mono: 'DM Mono', monospace;
+    --serif: 'DM Serif Display', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  .screen {
+    display: none;
+    min-height: 100vh;
+    padding: 2rem 1.5rem;
+    max-width: 480px;
+    margin: 0 auto;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .screen.active { display: flex; }
+
+  /* LANGUAGE SCREEN */
+  #lang-screen {
+    align-items: center;
+    text-align: center;
+    gap: 2rem;
+  }
+
+  .lang-title {
+    font-family: var(--serif);
+    font-size: 2rem;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+
+  .lang-subtitle {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .lang-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 280px;
+  }
+
+  .lang-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .lang-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* INTRO SCREEN */
+  #intro-screen {
+    justify-content: space-between;
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+    gap: 2rem;
+  }
+
+  .intro-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .intro-title {
+    font-family: var(--serif);
+    font-size: 2.8rem;
+    line-height: 1.1;
+    color: var(--text);
+  }
+
+  .intro-title em {
+    color: var(--accent);
+    font-style: italic;
+  }
+
+  .intro-body {
+    font-size: 0.8rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+    border-left: 1px solid var(--border);
+    padding-left: 1rem;
+  }
+
+  .intro-meta {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .intro-meta span { color: var(--accent); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 1rem 2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  .btn-primary:hover { background: #d4b87a; }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.75rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  .btn-secondary:hover { border-color: var(--text-dim); color: var(--text); }
+
+  /* PROGRESS BAR */
+  #progress-bar-container {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--border);
+    z-index: 100;
+    display: none;
+  }
+
+  #progress-bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
+  /* QUIZ SCREEN */
+  #quiz-screen {
+    justify-content: flex-start;
+    padding-top: 4rem;
+    gap: 2rem;
+    min-height: 100vh;
+  }
+
+  .q-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .q-number {
+    font-family: var(--serif);
+    font-size: 3.5rem;
+    color: var(--border);
+    line-height: 1;
+    margin-bottom: -0.5rem;
+  }
+
+  .q-text {
+    font-family: var(--serif);
+    font-size: 1.4rem;
+    line-height: 1.4;
+    color: var(--text);
+  }
+
+  .q-hint {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .option {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    position: relative;
+    letter-spacing: 0.02em;
+  }
+
+  .option:hover { border-color: var(--accent-dim); }
+  .option.selected { border-color: var(--accent); color: var(--accent); background: rgba(200, 169, 110, 0.05); }
+  .option.correct { border-color: var(--pass); color: #6dbc88; background: rgba(58, 107, 74, 0.1); }
+  .option.incorrect { border-color: var(--fail); color: #c47070; background: rgba(139, 58, 58, 0.1); }
+  .option:disabled { cursor: default; }
+
+  .btn-next {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.85rem 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+    display: none;
+  }
+
+  .btn-next:hover { background: var(--accent); color: var(--bg); }
+  .btn-next.visible { display: block; }
+
+  /* FEEDBACK */
+  .feedback {
+    display: none;
+    font-size: 0.75rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+    border-left: 2px solid var(--accent-dim);
+    padding-left: 0.75rem;
+    font-style: italic;
+  }
+
+  .feedback.visible { display: block; }
+
+  /* MIDPOINT */
+  #midpoint-screen {
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1.5rem;
+    padding-top: 4rem;
+  }
+
+  .midpoint-aside {
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-style: italic;
+    color: var(--accent);
+    line-height: 1.3;
+  }
+
+  .midpoint-sub {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* RESULTS */
+  #result-screen {
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1.5rem;
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+
+  .result-score {
+    font-family: var(--serif);
+    font-size: 5rem;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .result-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .result-title {
+    font-family: var(--serif);
+    font-size: 2rem;
+    line-height: 1.2;
+  }
+
+  .result-body {
+    font-size: 0.8rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+
+  .contact-box {
+    border: 1px solid var(--accent);
+    padding: 1.25rem;
+    width: 100%;
+  }
+
+  .contact-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 0.5rem;
+  }
+
+  .contact-handle {
+    font-family: var(--serif);
+    font-size: 1.4rem;
+    color: var(--accent);
+  }
+
+  .contact-note {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    margin-top: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  .contact-link {
+    display: block;
+    margin-top: 0.75rem;
+    color: var(--accent);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-bottom: 1px solid var(--accent-dim);
+    padding-bottom: 0.25rem;
+    width: fit-content;
+  }
+
+  /* CONFETTI */
+  .confetti-piece {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    opacity: 0;
+    animation: confetti-fall 3s ease-in forwards;
+    z-index: 999;
+  }
+
+  @keyframes confetti-fall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* UKRAINE SCREEN */
+  #ukraine-close {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 0;
+  }
+
+  /* FADE ANIMATION */
+  .fade-in {
+    animation: fadeIn 0.4s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .divider {
+    width: 40px;
+    height: 1px;
+    background: var(--border);
+  }
+
+  @media (min-height: 800px) {
+    .intro-title { font-size: 3.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- PROGRESS BAR -->
+<div id="progress-bar-container"><div id="progress-bar"></div></div>
+
+<!-- LANGUAGE SCREEN -->
+<div id="lang-screen" class="screen active">
+  <div class="lang-title">The Filter</div>
+  <div class="lang-subtitle">Choose your language / Vali keel / Выберите язык</div>
+  <div class="lang-buttons">
+    <button class="lang-btn" onclick="setLang('en')">English</button>
+    <button class="lang-btn" onclick="setLang('et')">Eesti</button>
+    <button class="lang-btn" onclick="setLang('ru')">Русский</button>
+  </div>
+</div>
+
+<!-- INTRO SCREEN -->
+<div id="intro-screen" class="screen">
+  <div>
+    <div class="intro-label" id="intro-label">Pre-screening</div>
+    <div class="divider" style="margin: 0.75rem 0;"></div>
+  </div>
+  <div>
+    <div class="intro-title" id="intro-title">I'd rather run<br><em>10km</em> than sit<br>through a bad<br>first date.</div>
+  </div>
+  <div class="intro-body" id="intro-body">
+    This is a short filter. Not a personality test. Not a game.<br><br>
+    I made it because my time is finite and yours probably is too. If you pass, you get my contact. If you don't, you get an honest explanation and a chance to try again.
+  </div>
+  <div class="intro-meta">
+    <div>~3 <span id="intro-min">min</span></div>
+    <div>10 <span id="intro-q">questions</span></div>
+    <div id="intro-loc">Tallinn</div>
+  </div>
+  <button class="btn-primary" id="start-btn" onclick="startQuiz()">Start →</button>
+</div>
+
+<!-- QUIZ SCREEN -->
+<div id="quiz-screen" class="screen">
+  <div class="q-meta">
+    <span id="q-counter">01 / 10</span>
+    <span id="q-category">Lifestyle</span>
+  </div>
+  <div class="q-number" id="q-number">01</div>
+  <div class="q-text" id="q-text"></div>
+  <div class="q-hint" id="q-hint"></div>
+  <div class="options" id="options-container"></div>
+  <div class="feedback" id="feedback"></div>
+  <button class="btn-next" id="next-btn" onclick="nextQuestion()">
+    <span id="next-label">Continue →</span>
+  </button>
+</div>
+
+<!-- MIDPOINT SCREEN -->
+<div id="midpoint-screen" class="screen">
+  <div class="intro-label" id="mid-label">Halfway</div>
+  <div class="midpoint-aside" id="mid-text">"You're doing fine.<br>Most people quit<br>at the running question."</div>
+  <div class="midpoint-sub" id="mid-sub">5 more questions.</div>
+  <button class="btn-primary" id="mid-btn" onclick="continueMidpoint()">Continue →</button>
+</div>
+
+<!-- RESULT SCREEN -->
+<div id="result-screen" class="screen">
+  <div class="result-label" id="result-label">Your result</div>
+  <div class="result-score" id="result-score"></div>
+  <div class="result-title" id="result-title"></div>
+  <div class="result-body" id="result-body"></div>
+  <div id="pass-content" style="display:none; width:100%; display:none; flex-direction:column; gap:1rem;">
+    <div class="contact-box">
+      <div class="contact-label" id="contact-label">Contact</div>
+      <div class="contact-handle">@juozasjuozavicius</div>
+      <div class="contact-note" id="contact-note">Say you took the test.</div>
+      <a href="https://www.instagram.com/juozasjuozavicius" target="_blank" class="contact-link" id="contact-link">Open Instagram →</a>
+    </div>
+    <button class="btn-secondary" id="share-btn" onclick="shareQuiz()">Share this quiz →</button>
+  </div>
+  <div id="fail-content" style="display:none; width:100%;">
+    <button class="btn-secondary" id="retry-btn" onclick="retryQuiz()">Try again →</button>
+  </div>
+</div>
+
+<!-- UKRAINE CLOSE SCREEN -->
+<div id="ukraine-close" class="screen">
+</div>
+
+<script>
+  let lang = 'en';
+  let currentQuestion = 0;
+  let score = 0;
+  let answered = false;
+  let midpointShown = false;
+  let selectedOptions = [];
+
+  const content = {
+    en: {
+      introLabel: 'Pre-screening',
+      introTitle: "I'd rather run<br><em>10km</em> than sit<br>through a bad<br>first date.",
+      introBody: "This is a short filter. Not a personality test. Not a game.<br><br>I made it because my time is finite and yours probably is too. If you pass, you get my contact. If you don't — honest explanation, chance to retry.",
+      introMin: 'min',
+      introQ: 'questions',
+      startBtn: 'Start →',
+      nextLabel: 'Continue →',
+      midLabel: 'Halfway',
+      midText: '"You\'re doing fine.<br>Most people quit<br>at the running question."',
+      midSub: '5 more questions.',
+      midBtn: 'Continue →',
+      resultLabel: 'Your result',
+      passTitle: 'You passed.',
+      passBody: "You think before you speak. You move. You have something going on inside your head. That's rare enough to be worth a conversation.",
+      failTitle: "Not quite.",
+      failBody: "Honest answer: we're probably not compatible. It's not a judgement — it's a filter. You can retry if something didn't represent you well.",
+      contactLabel: 'Contact',
+      contactNote: 'Say you took the test.',
+      contactLink: 'Open Instagram →',
+      shareBtn: 'Share this quiz →',
+      retryBtn: 'Try again →',
+      questions: [
+        {
+          category: 'Morning',
+          text: 'Your alarm goes off at 6:30am on a Saturday. What actually happens?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'I\'m already awake.', correct: true },
+            { text: 'I get up, slightly annoyed at whoever set it.', correct: true },
+            { text: 'I hit snooze twice and reassess my life choices.', correct: false },
+            { text: 'Saturday alarm? That\'s not a thing.', correct: false }
+          ],
+          feedback: "I run before most people open their eyes. Not because I'm disciplined — because I don't function well otherwise. A partner who sleeps until noon is on a different operating schedule than me."
+        },
+        {
+          category: 'Ukraine',
+          text: 'Do you support Russia\'s war in Ukraine?',
+          hint: 'This one has one answer.',
+          multi: false,
+          ukraine: true,
+          options: [
+            { text: 'No. It\'s an illegal invasion.', correct: true },
+            { text: 'I understand Russia\'s security concerns.', correct: false, kill: true },
+            { text: 'It\'s complicated.', correct: false, kill: true },
+            { text: 'Yes.', correct: false, kill: true }
+          ],
+          feedback: "I live 150km from the Russian border. My daughters will grow up in this country. This isn't politics. It's geography."
+        },
+        {
+          category: 'Movement',
+          text: 'Your relationship with exercise:',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'I have a consistent practice. It\'s non-negotiable.', correct: true },
+            { text: 'I go in phases. Currently in an active one.', correct: true },
+            { text: 'I walk places. Does that count?', correct: false },
+            { text: 'I\'ve been meaning to start.', correct: false }
+          ],
+          feedback: "I run 60-80km a week. I'm not looking for someone to race with. But I am looking for someone who understands that this isn't optional for me — it's maintenance. A sedentary lifestyle and mine don't coexist well long-term."
+        },
+        {
+          category: 'Reading',
+          text: 'When did you last read a book — and what was it?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Currently reading one. Non-fiction or dense fiction.', correct: true },
+            { text: 'Finished one recently. Actual book, not just articles.', correct: true },
+            { text: 'A few months ago. Something light.', correct: false },
+            { text: 'I get my information from podcasts and Instagram.', correct: false }
+          ],
+          feedback: "I read Taleb, Dostoevsky, systems theory, and occasionally something that destroys me emotionally. If you haven't read a real book in months, we'll run out of things to talk about faster than I'd like."
+        },
+        {
+          category: 'Conflict',
+          text: 'You\'re upset about something I did. What do you do?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'I say it directly. Probably the same day.', correct: true },
+            { text: 'I wait until I know what I actually think, then say it.', correct: true },
+            { text: 'I get quiet and hope you notice.', correct: false },
+            { text: 'I bring it up a week later when something else irritates me.', correct: false }
+          ],
+          feedback: "Suppressed frustration turns into resentment. I've seen what that costs. If something bothers you, say it. I can handle it. What I can't handle is guessing games."
+        },
+        {
+          category: 'Solitude',
+          text: 'Your partner needs a full weekend alone. No explanation. Just needs it.',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Fine. I probably needed mine too.', correct: true },
+            { text: 'I respect it, but I\'d want to understand eventually.', correct: true },
+            { text: 'I\'d be a little hurt. I\'d try not to show it.', correct: false },
+            { text: 'That means something is wrong.', correct: false }
+          ],
+          feedback: "I am an introvert who learned to present well socially. Solitude isn't rejection — it's maintenance. I need a woman who has her own inner world to return to. Neediness at that level is incompatible with how I function."
+        },
+        {
+          category: 'Future',
+          text: 'Where do you actually see yourself in 10 years?',
+          hint: 'Be honest, not impressive.',
+          multi: false,
+          options: [
+            { text: 'I have a rough map. It involves building something real.', correct: true },
+            { text: 'I know what I don\'t want. That\'s enough to navigate.', correct: true },
+            { text: 'No idea. I live in the present.', correct: false },
+            { text: 'Wherever life takes me.', correct: false }
+          ],
+          feedback: "I have a 15-year financial plan. I own two properties. I'm building something that will outlast me. I'm not looking for a co-pilot who improvises. Some uncertainty is fine. Directionlessness isn't."
+        },
+        {
+          category: 'Honesty',
+          text: 'You think I\'m wrong about something I said with confidence. You:',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Say so. Directly.', correct: true },
+            { text: 'Ask a question that makes me reconsider.', correct: true },
+            { text: 'Let it go to keep the peace.', correct: false },
+            { text: 'Agree until you can mention it to someone else later.', correct: false }
+          ],
+          feedback: "I say what I think. I expect the same. An echo chamber is not a relationship — it's a mirror. Push back. I can take it."
+        },
+        {
+          category: 'Curiosity',
+          text: 'You learn something new and genuinely surprising today. What happens?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'I fall down a rabbit hole. Probably for too long.', correct: true },
+            { text: 'I mention it to someone I think will find it interesting.', correct: true },
+            { text: 'I note it mentally and move on.', correct: false },
+            { text: 'I post it.', correct: false }
+          ],
+          feedback: "Curiosity is the one thing I find genuinely attractive that can't be faked long-term. Either you're curious or you're not. I need someone who gets genuinely excited about ideas."
+        },
+        {
+          category: 'Free answer',
+          text: 'Last one. What\'s something you want from life that you don\'t usually say out loud?',
+          hint: 'Pick the one that is actually true.',
+          multi: false,
+          options: [
+            { text: 'To build something real. Not just accumulate experiences.', correct: true },
+            { text: 'To be fully known by at least one person.', correct: true },
+            { text: 'To find stability and stop feeling like I\'m figuring it out.', correct: true },
+            { text: 'Honestly? Just to be happy. Nothing complicated.', correct: false }
+          ],
+          feedback: "This one I don't score harshly. But 'just be happy' as a life answer tells me something. Happiness is a byproduct. It's not a plan."
+        }
+      ]
+    },
+    et: {
+      introLabel: 'Eelfiltreerimine',
+      introTitle: "Eelistaksin joosta<br><em>10km</em> kui istuda<br>läbi halva<br>esimese kohtumise.",
+      introBody: "See on lühike filter. Mitte iseloomutest. Mitte mäng.<br><br>Tegin selle, sest minu aeg on piiratud ja sinu tõenäoliselt ka. Kui läbid — saad minu kontakti. Kui mitte — aus selgitus ja võimalus uuesti proovida.",
+      introMin: 'min',
+      introQ: 'küsimust',
+      startBtn: 'Alusta →',
+      nextLabel: 'Edasi →',
+      midLabel: 'Poolel teel',
+      midText: '"Lähed hästi.<br>Enamik loobub<br>jooksmisküsimuse juures."',
+      midSub: 'Veel 5 küsimust.',
+      midBtn: 'Jätka →',
+      resultLabel: 'Sinu tulemus',
+      passTitle: 'Läbisid.',
+      passBody: "Sa mõtled enne rääkimist. Sa liigud. Sul on peas midagi toimumas. See on piisavalt haruldane, et vestlust väärt olla.",
+      failTitle: "Mitte päris.",
+      failBody: "Aus vastus: tõenäoliselt ei sobi me kokku. See ei ole hinnang — see on filter. Saad uuesti proovida, kui mõni küsimus ei esindanud sind hästi.",
+      contactLabel: 'Kontakt',
+      contactNote: 'Ütle, et tegid testi.',
+      contactLink: 'Ava Instagram →',
+      shareBtn: 'Jaga seda testi →',
+      retryBtn: 'Proovi uuesti →',
+      questions: [
+        {
+          category: 'Hommik',
+          text: 'Äratuskell heliseb laupäeval kell 6:30. Mis tegelikult juhtub?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Olen juba ärkvel.', correct: true },
+            { text: 'Tõusen üles, veidi tüdinud.', correct: true },
+            { text: 'Vajutan "edasi lükka" kaks korda.', correct: false },
+            { text: 'Laupäeva äratuskell? See pole asi.', correct: false }
+          ],
+          feedback: "Jooksen enne kui enamik inimesi silmi avab. Mitte sellepärast, et olen distsiplineeritud — vaid sellepärast, et muidu ei tööta hästi. Partner, kes magab keskpäevani, on minu omast erineval operatsioonirežiimil."
+        },
+        {
+          category: 'Ukraina',
+          text: 'Kas toetad Venemaa sõda Ukrainas?',
+          hint: 'Sellel on üks vastus.',
+          multi: false,
+          ukraine: true,
+          options: [
+            { text: 'Ei. See on ebaseaduslik sissetung.', correct: true },
+            { text: 'Mõistan Venemaa julgeolekumuresid.', correct: false, kill: true },
+            { text: 'See on keeruline.', correct: false, kill: true },
+            { text: 'Jah.', correct: false, kill: true }
+          ],
+          feedback: "Elan 150km kaugusel Venemaa piirist. Minu tütred kasvavad selles riigis üles. See ei ole poliitika. See on geograafia."
+        },
+        {
+          category: 'Liikumine',
+          text: 'Sinu suhe treeninguga:',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Mul on järjepidev praktika. See on läbiräägimatu.', correct: true },
+            { text: 'Käin faasides. Praegu aktiivne faas.', correct: true },
+            { text: 'Kõnnin kohtadesse. Kas see loeb?', correct: false },
+            { text: 'Olen mõelnud alustada.', correct: false }
+          ],
+          feedback: "Jooksen 60-80km nädalas. Ei otsi kedagi, kellega võistelda. Aga otsin kedagi, kes mõistab, et see ei ole valikuline — see on hooldus."
+        },
+        {
+          category: 'Lugemine',
+          text: 'Millal viimati lugesid raamatut — ja mis see oli?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Loen praegu. Ilukirjandus või tihe mitteilukirjandus.', correct: true },
+            { text: 'Lõpetasin hiljuti. Päris raamat, mitte ainult artiklid.', correct: true },
+            { text: 'Mõni kuu tagasi. Midagi kerget.', correct: false },
+            { text: 'Saan infot podcastidest ja Instagramist.', correct: false }
+          ],
+          feedback: "Loen Talebi, Dostojevskit, süsteemiteooriat. Kui sa pole kuude kaupa päris raamatut lugenud, jääme jutust tühjaks kiiremini kui tahaksin."
+        },
+        {
+          category: 'Konflikt',
+          text: 'Oled millegi pärast ärritunud, mida tegin. Mida teed?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Ütlen otse. Tõenäoliselt samal päeval.', correct: true },
+            { text: 'Ootan kuni tean, mida tegelikult mõtlen, siis ütlen.', correct: true },
+            { text: 'Muutun vaikseks ja loodan, et märkad.', correct: false },
+            { text: 'Toon selle nädal hiljem üles, kui miski muu ärritab.', correct: false }
+          ],
+          feedback: "Surutud frustratsioon muutub pahameeleks. Olen näinud, mida see maksab. Kui miski häirib sind — ütle. Saan sellega hakkama. Arvatusmängudega mitte."
+        },
+        {
+          category: 'Üksindus',
+          text: 'Sinu partner vajab tervet nädalavahetust üksi. Ilma selgituseta.',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Sobib. Tõenäoliselt vajasin mina ka enda oma.', correct: true },
+            { text: 'Austan seda, aga tahaksin lõpuks mõista.', correct: true },
+            { text: 'Oleksin veidi haavatud. Üritaksin mitte näidata.', correct: false },
+            { text: 'See tähendab, et midagi on valesti.', correct: false }
+          ],
+          feedback: "Olen introvert, kes on õppinud sotsiaalselt hästi esinema. Üksindus ei ole tagasilükkamine — see on hooldus. Vajan naist, kellel on oma sisemine maailm, kuhu naasta."
+        },
+        {
+          category: 'Tulevik',
+          text: 'Kus näed end tegelikult 10 aasta pärast?',
+          hint: 'Ole aus, mitte muljetavaldav.',
+          multi: false,
+          options: [
+            { text: 'Mul on umbkaudne kaart. See hõlmab millegi reaalse ehitamist.', correct: true },
+            { text: 'Tean, mida ei taha. See on navigeerimiseks piisav.', correct: true },
+            { text: 'Pole aimugi. Elan olevikus.', correct: false },
+            { text: 'Kuhu elu viib.', correct: false }
+          ],
+          feedback: "Mul on 15-aastane finantsplaan. Oман kaks kinnisvara. Ehitan midagi, mis minust kauem kestab. Ei otsi kaaslendurit, kes improviseerib."
+        },
+        {
+          category: 'Ausus',
+          text: 'Arvad, et eksin milleski, mida kindlalt ütlesin. Sina:',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Ütlen nii. Otse.', correct: true },
+            { text: 'Esitan küsimuse, mis paneb mind ümber mõtlema.', correct: true },
+            { text: 'Lasen minna, et rahu hoida.', correct: false },
+            { text: 'Nõustun kuni saan seda hiljem kellelegi teisele mainida.', correct: false }
+          ],
+          feedback: "Ütlen mida mõtlen. Ootan sama. Kajamaja ei ole suhe — see on peegel. Vaidle vastu. Saan sellega hakkama."
+        },
+        {
+          category: 'Uudishimu',
+          text: 'Saad täna teada midagi uut ja tõeliselt üllatavat. Mis juhtub?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Kukkun jäneseauku. Tõenäoliselt liiga kauaks.', correct: true },
+            { text: 'Mainin seda kellelegi, kes arvaks seda huvitavaks.', correct: true },
+            { text: 'Märkan seda vaimselt ja lähen edasi.', correct: false },
+            { text: 'Postitan selle.', correct: false }
+          ],
+          feedback: "Uudishimu on ainus asi, mida pean tõeliselt atraktiivseks ja mida ei saa pikalt võltsida. Kas oled uudishimulik või mitte."
+        },
+        {
+          category: 'Vaba vastus',
+          text: 'Viimane. Mida tahad elult, mida tavaliselt valjusti ei ütle?',
+          hint: 'Vali see, mis on tegelikult tõsi.',
+          multi: false,
+          options: [
+            { text: 'Ehitada midagi reaalset. Mitte lihtsalt kogemusi koguda.', correct: true },
+            { text: 'Olla vähemalt ühe inimese poolt täielikult tuntud.', correct: true },
+            { text: 'Leida stabiilsus ja lõpetada tunne, et mõtestan veel välja.', correct: true },
+            { text: 'Ausalt? Lihtsalt olla õnnelik. Midagi keerulist.', correct: false }
+          ],
+          feedback: "Seda ei hinda ma karmilt. Aga 'lihtsalt olla õnnelik' eluvastusena ütleb mulle midagi. Õnn on kõrvalsaadus. See ei ole plaan."
+        }
+      ]
+    },
+    ru: {
+      introLabel: 'Предварительный отбор',
+      introTitle: "Лучше пробегу<br><em>10 км</em>, чем просижу<br>плохое первое<br>свидание.",
+      introBody: "Это короткий фильтр. Не тест личности. Не игра.<br><br>Я сделал его, потому что моё время ограничено — и твоё, скорее всего, тоже. Пройдёшь — получишь мои контакты. Не пройдёшь — честное объяснение и возможность попробовать снова.",
+      introMin: 'мин',
+      introQ: 'вопросов',
+      startBtn: 'Начать →',
+      nextLabel: 'Далее →',
+      midLabel: 'На полпути',
+      midText: '"Ты справляешься.<br>Большинство сдаётся<br>на вопросе про бег."',
+      midSub: 'Ещё 5 вопросов.',
+      midBtn: 'Продолжить →',
+      resultLabel: 'Твой результат',
+      passTitle: 'Ты прошла.',
+      passBody: "Ты думаешь перед тем как говорить. Двигаешься. В голове что-то происходит. Это достаточно редко, чтобы стоить разговора.",
+      failTitle: "Не совсем.",
+      failBody: "Честный ответ: скорее всего, мы не подходим друг другу. Это не суждение — это фильтр. Можешь попробовать снова, если какой-то вопрос тебя неправильно представил.",
+      contactLabel: 'Контакт',
+      contactNote: 'Скажи, что прошла тест.',
+      contactLink: 'Открыть Instagram →',
+      shareBtn: 'Поделиться тестом →',
+      retryBtn: 'Попробовать снова →',
+      questions: [
+        {
+          category: 'Утро',
+          text: 'Будильник звонит в 6:30 в субботу. Что происходит на самом деле?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Я уже не сплю.', correct: true },
+            { text: 'Встаю, немного раздражённо.', correct: true },
+            { text: 'Нажимаю "отложить" дважды.', correct: false },
+            { text: 'Будильник в субботу? Это не вещь.', correct: false }
+          ],
+          feedback: "Я бегаю до того, как большинство людей открывает глаза. Не потому что я дисциплинирован — а потому что иначе не функционирую нормально. Партнёр, который спит до полудня, живёт в другом режиме."
+        },
+        {
+          category: 'Украина',
+          text: 'Ты поддерживаешь войну России в Украине?',
+          hint: 'На этот вопрос один ответ.',
+          multi: false,
+          ukraine: true,
+          options: [
+            { text: 'Нет. Это незаконное вторжение.', correct: true },
+            { text: 'Я понимаю озабоченности России в сфере безопасности.', correct: false, kill: true },
+            { text: 'Всё сложно.', correct: false, kill: true },
+            { text: 'Да.', correct: false, kill: true }
+          ],
+          feedback: "Я живу в 150 км от российской границы. Мои дочери вырастут в этой стране. Это не политика. Это география."
+        },
+        {
+          category: 'Движение',
+          text: 'Твои отношения со спортом:',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'У меня есть постоянная практика. Это не обсуждается.', correct: true },
+            { text: 'Хожу фазами. Сейчас активная фаза.', correct: true },
+            { text: 'Хожу пешком. Считается?', correct: false },
+            { text: 'Всё собираюсь начать.', correct: false }
+          ],
+          feedback: "Я бегаю 60-80 км в неделю. Не ищу кого-то, чтобы соревноваться. Но ищу кого-то, кто понимает — это не опционально для меня."
+        },
+        {
+          category: 'Чтение',
+          text: 'Когда последний раз читала книгу — и что это было?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Читаю сейчас. Нон-фикшн или сложная художественная.', correct: true },
+            { text: 'Закончила недавно. Настоящую книгу, не статьи.', correct: true },
+            { text: 'Несколько месяцев назад. Что-то лёгкое.', correct: false },
+            { text: 'Информацию беру из подкастов и Instagram.', correct: false }
+          ],
+          feedback: "Я читаю Талеба, Достоевского, теорию систем. Если ты не читала настоящую книгу месяцами — нам будет не о чём говорить быстрее, чем хотелось бы."
+        },
+        {
+          category: 'Конфликт',
+          text: 'Ты злишься на что-то, что я сделал. Что делаешь?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Говорю прямо. Скорее всего в тот же день.', correct: true },
+            { text: 'Жду, пока пойму что думаю на самом деле, потом говорю.', correct: true },
+            { text: 'Замолкаю и надеюсь, что ты заметишь.', correct: false },
+            { text: 'Поднимаю это через неделю, когда что-то ещё раздражит.', correct: false }
+          ],
+          feedback: "Подавленное раздражение превращается в обиду. Я видел, чего это стоит. Если что-то беспокоит — скажи. Я справлюсь. Игры в угадайку — нет."
+        },
+        {
+          category: 'Одиночество',
+          text: 'Твой партнёр нуждается в целых выходных наедине с собой. Без объяснений.',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Хорошо. Мне тоже, наверное, нужны были свои.', correct: true },
+            { text: 'Уважу это, но захочу понять в итоге.', correct: true },
+            { text: 'Немного обижусь. Постараюсь не показывать.', correct: false },
+            { text: 'Это значит, что что-то не так.', correct: false }
+          ],
+          feedback: "Я интроверт, научившийся хорошо выглядеть социально. Одиночество — не отвержение, это техническое обслуживание. Мне нужна женщина с собственным внутренним миром."
+        },
+        {
+          category: 'Будущее',
+          text: 'Где ты себя реально видишь через 10 лет?',
+          hint: 'Будь честной, не впечатляющей.',
+          multi: false,
+          options: [
+            { text: 'У меня есть примерная карта. Она включает построение чего-то реального.', correct: true },
+            { text: 'Знаю чего не хочу. Этого достаточно для навигации.', correct: true },
+            { text: 'Понятия не имею. Живу настоящим.', correct: false },
+            { text: 'Куда жизнь приведёт.', correct: false }
+          ],
+          feedback: "У меня 15-летний финансовый план. Я владею двумя объектами недвижимости. Строю что-то, что переживёт меня. Ищу не ко-пилота, который импровизирует."
+        },
+        {
+          category: 'Честность',
+          text: 'Ты думаешь, что я ошибаюсь в чём-то, что сказал уверенно. Ты:',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Говорю об этом. Прямо.', correct: true },
+            { text: 'Задаю вопрос, который заставит меня пересмотреть.', correct: true },
+            { text: 'Отпускаю ради мира.', correct: false },
+            { text: 'Соглашаюсь пока не смогу упомянуть это кому-то другому позже.', correct: false }
+          ],
+          feedback: "Я говорю что думаю. Жду того же. Эхо-камера — не отношения, это зеркало. Возражай. Я выдержу."
+        },
+        {
+          category: 'Любопытство',
+          text: 'Сегодня узнаёшь что-то новое и по-настоящему удивительное. Что происходит?',
+          hint: '',
+          multi: false,
+          options: [
+            { text: 'Падаю в кроличью нору. Наверное, слишком надолго.', correct: true },
+            { text: 'Упоминаю это кому-то, кто найдёт это интересным.', correct: true },
+            { text: 'Отмечаю мысленно и двигаюсь дальше.', correct: false },
+            { text: 'Делаю пост.', correct: false }
+          ],
+          feedback: "Любопытство — единственное, что я нахожу по-настоящему привлекательным и что невозможно долго притворяться. Либо ты любопытна, либо нет."
+        },
+        {
+          category: 'Свободный ответ',
+          text: 'Последний. Чего ты хочешь от жизни, о чём обычно не говоришь вслух?',
+          hint: 'Выбери то, что действительно правда.',
+          multi: false,
+          options: [
+            { text: 'Построить что-то реальное. Не просто накапливать опыт.', correct: true },
+            { text: 'Быть полностью узнанной хотя бы одним человеком.', correct: true },
+            { text: 'Найти стабильность и перестать чувствовать, что всё ещё разбираюсь.', correct: true },
+            { text: 'Честно? Просто быть счастливой. Ничего сложного.', correct: false }
+          ],
+          feedback: "Это я не оцениваю строго. Но 'просто быть счастливой' как ответ на жизнь кое-что говорит мне. Счастье — это побочный продукт. Это не план."
+        }
+      ]
+    }
+  };
+
+  function setLang(l) {
+    lang = l;
+    const c = content[l];
+    document.getElementById('intro-label').textContent = c.introLabel;
+    document.getElementById('intro-title').innerHTML = c.introTitle;
+    document.getElementById('intro-body').innerHTML = c.introBody;
+    document.getElementById('intro-min').textContent = c.introMin;
+    document.getElementById('intro-q').textContent = c.introQ;
+    document.getElementById('start-btn').textContent = c.startBtn;
+    document.getElementById('mid-label').textContent = c.midLabel;
+    document.getElementById('mid-text').innerHTML = c.midText;
+    document.getElementById('mid-sub').textContent = c.midSub;
+    document.getElementById('mid-btn').textContent = c.midBtn;
+    document.getElementById('next-label').textContent = c.nextLabel.replace(' →', '');
+    showScreen('intro-screen');
+  }
+
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.getElementById(id).classList.add('fade-in');
+    setTimeout(() => document.getElementById(id).classList.remove('fade-in'), 500);
+  }
+
+  function startQuiz() {
+    currentQuestion = 0;
+    score = 0;
+    midpointShown = false;
+    document.getElementById('progress-bar-container').style.display = 'block';
+    showScreen('quiz-screen');
+    loadQuestion();
+  }
+
+  function loadQuestion() {
+    const c = content[lang];
+    const q = c.questions[currentQuestion];
+    answered = false;
+    selectedOptions = [];
+
+    const total = c.questions.length;
+    const num = String(currentQuestion + 1).padStart(2, '0');
+
+    document.getElementById('q-counter').textContent = `${num} / ${String(total).padStart(2, '0')}`;
+    document.getElementById('q-category').textContent = q.category.toUpperCase();
+    document.getElementById('q-number').textContent = num;
+    document.getElementById('q-text').textContent = q.text;
+    document.getElementById('q-hint').textContent = q.hint || '';
+    document.getElementById('feedback').textContent = '';
+    document.getElementById('feedback').classList.remove('visible');
+    document.getElementById('next-btn').classList.remove('visible');
+
+    const progress = (currentQuestion / total) * 100;
+    document.getElementById('progress-bar').style.width = progress + '%';
+
+    const container = document.getElementById('options-container');
+    container.innerHTML = '';
+
+    q.options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'option';
+      btn.textContent = opt.text;
+      btn.onclick = () => selectOption(i, btn, opt);
+      container.appendChild(btn);
+    });
+  }
+
+  function selectOption(index, btn, opt) {
+    if (answered) return;
+
+    // Ukraine kill switch
+    if (opt.kill) {
+      showScreen('ukraine-close');
+      document.getElementById('progress-bar-container').style.display = 'none';
+      return;
+    }
+
+    answered = true;
+    const q = content[lang].questions[currentQuestion];
+    const allButtons = document.querySelectorAll('.option');
+
+    allButtons.forEach((b, i) => {
+      b.disabled = true;
+      if (q.options[i].correct) {
+        b.classList.add('correct');
+      } else {
+        b.classList.add('incorrect');
+      }
+    });
+
+    if (opt.correct) {
+      score++;
+    }
+
+    const feedback = document.getElementById('feedback');
+    feedback.textContent = q.feedback;
+    feedback.classList.add('visible');
+
+    const nextBtn = document.getElementById('next-btn');
+    const isLast = currentQuestion === content[lang].questions.length - 1;
+    document.getElementById('next-label').textContent = isLast
+      ? (lang === 'en' ? 'See results →' : lang === 'et' ? 'Vaata tulemusi →' : 'Смотреть результаты →')
+      : content[lang].nextLabel;
+    nextBtn.classList.add('visible');
+  }
+
+  function nextQuestion() {
+    currentQuestion++;
+    const total = content[lang].questions.length;
+
+    if (currentQuestion >= total) {
+      showResult();
+      return;
+    }
+
+    if (currentQuestion === 5 && !midpointShown) {
+      midpointShown = true;
+      showScreen('midpoint-screen');
+      return;
+    }
+
+    showScreen('quiz-screen');
+    loadQuestion();
+  }
+
+  function continueMidpoint() {
+    showScreen('quiz-screen');
+    loadQuestion();
+  }
+
+  function showResult() {
+    document.getElementById('progress-bar').style.width = '100%';
+    const c = content[lang];
+    const passed = score >= 7;
+
+    document.getElementById('result-label').textContent = c.resultLabel;
+    document.getElementById('result-score').textContent = `${score}/10`;
+    document.getElementById('result-title').textContent = passed ? c.passTitle : c.failTitle;
+    document.getElementById('result-body').textContent = passed ? c.passBody : c.failBody;
+
+    const passContent = document.getElementById('pass-content');
+    const failContent = document.getElementById('fail-content');
+
+    document.getElementById('contact-label').textContent = c.contactLabel;
+    document.getElementById('contact-note').textContent = c.contactNote;
+    document.getElementById('contact-link').textContent = c.contactLink;
+    document.getElementById('share-btn').textContent = c.shareBtn;
+    document.getElementById('retry-btn').textContent = c.retryBtn;
+
+    if (passed) {
+      passContent.style.display = 'flex';
+      failContent.style.display = 'none';
+      setTimeout(launchConfetti, 300);
+    } else {
+      passContent.style.display = 'none';
+      failContent.style.display = 'block';
+    }
+
+    showScreen('result-screen');
+    document.getElementById('progress-bar-container').style.display = 'none';
+  }
+
+  function launchConfetti() {
+    const colors = ['#c8a96e', '#e8e4dc', '#6dbc88', '#70b4c4', '#c47070'];
+    for (let i = 0; i < 60; i++) {
+      setTimeout(() => {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.left = Math.random() * 100 + 'vw';
+        piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.animationDelay = Math.random() * 0.5 + 's';
+        piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+        piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+        document.body.appendChild(piece);
+        setTimeout(() => piece.remove(), 4000);
+      }, i * 30);
+    }
+  }
+
+  function retryQuiz() {
+    startQuiz();
+  }
+
+  function shareQuiz() {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({ title: 'The Filter — by Marius', url });
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        document.getElementById('share-btn').textContent = lang === 'en' ? 'Link copied ✓' : lang === 'et' ? 'Link kopeeritud ✓' : 'Ссылка скопирована ✓';
+        setTimeout(() => {
+          document.getElementById('share-btn').textContent = content[lang].shareBtn;
+        }, 2000);
+      });
+    }
+  }
+</script>
+</body>
+</html>
